@@ -76,7 +76,6 @@ class LauncherListIndicator(object):
         self.app_menu = gtk.Menu()
         profiles = None
         separator_added = None
-        profiles_added = None
         if os.path.isfile(self.config_file):
             with open(self.config_file) as conf_file:
                 try:
@@ -207,7 +206,7 @@ class LauncherListIndicator(object):
                 with open(self.config_file,'w') as conf_file:
                    lists.pop(entry)
                    json.dump(lists, conf_file,indent=4,sort_keys=True) 
-                   self.make_menu()
+                self.make_menu()
 
     def quit(self, data=None):
         """ closes indicator """
