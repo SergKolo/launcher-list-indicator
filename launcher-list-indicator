@@ -73,6 +73,9 @@ class LauncherListIndicator(object):
 
     def make_menu(self):
         """ generates entries in the indicator"""
+        if hasattr(self, 'app_menu'):
+           for item in self.app_menu.get_children():
+               self.app_menu.remove(item)
         self.app_menu = gtk.Menu()
         profiles = None
         separator_added = None
