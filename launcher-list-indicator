@@ -1,0 +1,211 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+#
+# Author: Serg Kolo , contact: 1047481448@qq.com
+# Date: August 22 , 2016
+# Purpose: Indicator for Ubuntu Unity to set and keep 
+#          track of launcher icon lists
+# Tested on: Ubuntu 16.04 LTS
+# 
+#
+# Licensed under The MIT License (MIT).
+# See included LICENSE file or the notice below.
+#
+# Copyright © 2016 Sergiy Kolodyazhnyy
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included
+# in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+import gi
+gi.require_version('AppIndicator3', '0.1')
+from gi.repository import GLib as glib
+from gi.repository import AppIndicator3 as appindicator
+from gi.repository import Gtk as gtk
+from gi.repository import Gio
+from collections import OrderedDict
+import subprocess
+import json
+import os
+
+class LauncherListIndicator(object):
+
+    def __init__(self):
+        self.app = appindicator.Indicator.new(
+                       'mouse-profile-indicator', "",
+                       appindicator.IndicatorCategory.HARDWARE
+                       )
+
+        self.app.set_status(appindicator.IndicatorStatus.ACTIVE)
+
+        self.schema = 'com.canonical.Unity.Launcher'
+        self.key = 'favorites' 
+        self.config_file = os.path.join(
+                               os.path.expanduser('~'),
+                               '.launcher_profiles.json'
+                               )
+        self.make_menu()
+        self.icon_path = os.path.dirname( os.path.realpath(__file__) )
+        self.app.set_icon(
+             os.path.join(self.icon_path,"indicator-icon.png"  )
+             )
+
+        self.update_label()
+
+    def set_value(self,*args):
+        """ wrapper function for gsettings_set() """
+        self.gsettings_set(self.schema,None,self.key,args[-1])
+
+    def make_menu(self):
+        """ generates entries in the indicator"""
+        self.app_menu = gtk.Menu()
+        profiles = None
+
+        if os.path.isfile(self.config_file):
+           with open(self.config_file) as conf_file:
+               profiles = json.load( conf_file)
+               sorted_profiles = OrderedDict(sorted(profiles.items()))
+               for key,value in sorted_profiles.items():
+                   self.menu_item = gtk.MenuItem(key)
+                   self.menu_item.connect('activate',self.set_value,value)
+                   self.app_menu.append(self.menu_item)
+                   self.menu_item.show()
+
+        self.record_profile = gtk.MenuItem('Store current')
+        self.record_profile.connect('activate',self.record)
+        self.app_menu.append(self.record_profile)
+        self.app.set_secondary_activate_target(self.record_profile)
+        self.record_profile.show()
+
+        self.quit_app = gtk.MenuItem('Quit')
+        self.quit_app.connect('activate', self.quit)
+        self.app_menu.append(self.quit_app)
+        self.quit_app.show()
+     
+        self.app.set_menu(self.app_menu)
+
+    def gsettings_get(self,schema,path,key):
+        """Get value of gsettings schema"""
+        if path is None:
+            gsettings = Gio.Settings.new(schema)
+        else:
+            gsettings = Gio.Settings.new_with_path(schema,path)
+        return gsettings.get_value(key)
+    
+    def gsettings_set(self,schema,path,key,value):
+        """Set value of gsettings schema"""
+        if path is None:
+            gsettings = Gio.Settings.new(schema)
+        else:
+            gsettings = Gio.Settings.new_with_path(schema,path)
+        return gsettings.set_strv(key,value)
+    
+    def run(self):
+        """ Launches the indicator """
+        try:
+            gtk.main()
+        except KeyboardInterrupt:
+            pass
+
+    def record(self,data=None):
+        """ Store current setting as new profile"""
+        current_list = list(self.gsettings_get(self.schema,None,self.key))
+        label = self.run_cmd([
+                             'zenity', '--entry', 
+                             '--title=""','--text="Name this profile"'
+                             ])
+        if not label:
+            return None
+        else:
+            label = label.decode().strip()
+
+        if os.path.isfile(self.config_file):
+            # read data from file and append to it
+            with open(self.config_file,'r') as conf_file:
+                data = json.load(conf_file)
+                write_ok = True
+                for key,value in data.items():
+                    if label == key:
+                       message ='"Label already exists"'
+                       self.run_cmd([
+                                    'zenity', '--error', 
+                                    '--title=""', '--text=' + message
+                                    ])
+                       write_ok=False
+                       
+                    if value == current_list:
+                       message = '"Profile with such value already exists"' 
+                       self.run_cmd([
+                                    'zenity', '--error', 
+                                    '--title=""', '--text=' + message
+                                    ])
+                       write_ok=False
+ 
+                data[label]=current_list
+        else:
+            # file doesn't exist, create it
+            write_ok=True
+            data = { label:current_list  }
+            #print(data)
+
+        if write_ok:
+            with open(self.config_file,'w') as conf_file:
+                json.dump( data, conf_file,indent=4,sort_keys=True)
+            self.make_menu()
+        
+    def quit(self, data=None):
+        """ closes indicator """
+        gtk.main_quit()
+
+    def run_cmd(self, cmdlist):
+        """ Reusable function for running external commands """
+        new_env = dict( os.environ ) 
+        new_env['LC_ALL'] = 'C' 
+        try:
+            stdout = subprocess.check_output(cmdlist,env=new_env)
+        except subprocess.CalledProcessError:
+            pass
+        else:
+            if stdout:
+                return stdout
+
+    def update_label(self):
+        """ periodically alters indicator label
+            to reflect current profile in use
+        """
+        if os.path.isfile(self.config_file): 
+            with open(self.config_file) as conf_file:
+                current_value = list(self.gsettings_get(self.schema,None,self.key))
+                self.app.set_label("N/A", "")
+                profiles = json.load( conf_file)
+                sorted_profiles = OrderedDict(sorted(profiles.items()))
+                for key,value in sorted_profiles.items():
+                   if value == current_value:
+                        self.app.set_label(key,"")
+        glib.timeout_add_seconds(2.5, self.callback)
+
+    def callback(self):
+        self.update_label()
+
+
+def main():
+    """ defines program entry point """
+    indicator = LauncherListIndicator()
+    indicator.run()
+
+if __name__ == '__main__':
+    main()
