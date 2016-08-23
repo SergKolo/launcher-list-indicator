@@ -192,7 +192,7 @@ class LauncherListIndicator(object):
         
         entry = self.run_cmd([
                              'zenity', '--entry', 
-                             '--title=""','--text="Name this profile"'
+                             '--title=""','--text="Which entry to remove?"'
                              ]).decode().strip()
 
         if os.path.isfile(self.config_file): 
