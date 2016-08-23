@@ -75,18 +75,38 @@ class LauncherListIndicator(object):
         """ generates entries in the indicator"""
         self.app_menu = gtk.Menu()
         profiles = None
-
+        separator_added = None
+        profiles_added = None
         if os.path.isfile(self.config_file):
-           with open(self.config_file) as conf_file:
-               profiles = json.load( conf_file)
-               sorted_profiles = OrderedDict(sorted(profiles.items()))
-               for key,value in sorted_profiles.items():
-                   self.menu_item = gtk.MenuItem(key)
-                   self.menu_item.connect('activate',self.set_value,value)
-                   self.app_menu.append(self.menu_item)
-                   self.menu_item.show()
+            with open(self.config_file) as conf_file:
+                try:
+                    profiles = json.load( conf_file)
+                except ValueError:
+                    pass
+                else:
+                    if profiles:
+                        sorted_profiles = OrderedDict(sorted(profiles.items()))
+                        for key,value in sorted_profiles.items():
+                            self.menu_item = gtk.MenuItem(key)
+                            self.menu_item.connect('activate',self.set_value,value)
+                            self.app_menu.append(self.menu_item)
+                            self.menu_item.show()
+                         
+                        self.separator = gtk.SeparatorMenuItem()
+                        self.app_menu.append(self.separator)
+                        self.separator.show()
+                        separator_added = True
 
-        self.record_profile = gtk.MenuItem('Store current')
+                        self.remove_list = gtk.MenuItem('Remove entry')
+                        self.remove_list.connect('activate',self.remove_entry)
+                        self.app_menu.append(self.remove_list)
+                        self.remove_list.show()
+ 
+        if not separator_added:
+            self.separator = gtk.SeparatorMenuItem()
+            self.app_menu.append(self.separator)
+            self.separator.show()
+        self.record_profile = gtk.MenuItem('Save current')
         self.record_profile.connect('activate',self.record)
         self.app_menu.append(self.record_profile)
         self.app.set_secondary_activate_target(self.record_profile)
@@ -167,7 +187,28 @@ class LauncherListIndicator(object):
             with open(self.config_file,'w') as conf_file:
                 json.dump( data, conf_file,indent=4,sort_keys=True)
             self.make_menu()
+
+    def remove_entry(self,lists=None):
         
+        entry = self.run_cmd([
+                             'zenity', '--entry', 
+                             '--title=""','--text="Name this profile"'
+                             ]).decode().strip()
+
+        if os.path.isfile(self.config_file): 
+            found = False
+            with open(self.config_file) as conf_file:
+                lists = json.load(conf_file) 
+                for key in lists.keys():
+                   if key == entry:
+                      found = True
+
+            if found:
+                with open(self.config_file,'w') as conf_file:
+                   lists.pop(entry)
+                   json.dump(lists, conf_file,indent=4,sort_keys=True) 
+                   self.make_menu()
+
     def quit(self, data=None):
         """ closes indicator """
         gtk.main_quit()
