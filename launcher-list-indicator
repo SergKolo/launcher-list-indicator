@@ -41,8 +41,8 @@ from gi.repository import Gio
 from collections import OrderedDict
 import subprocess
 import json
+import time
 import os
-
 
 class LauncherListIndicator(object):
 
@@ -65,21 +65,26 @@ class LauncherListIndicator(object):
         self.app.set_icon(
             os.path.join(self.icon_path, "indicator-icon.png")
             )
-
+        self.show_label = False
         self.update_label()
 
     def set_value(self, *args):
         """ wrapper function for gsettings_set() """
         self.gsettings_set(self.schema, None, self.key, args[-1])
+        self.make_menu()
 
     def make_menu(self):
         """ generates entries in the indicator"""
         if hasattr(self, 'app_menu'):
             for item in self.app_menu.get_children():
                 self.app_menu.remove(item)
-        self.app_menu = gtk.Menu()
+        else:
+            self.app_menu = gtk.Menu()
+
         profiles = None
         separator_added = None
+        current_list = list(self.gsettings_get(self.schema,None,self.key))
+
         if os.path.isfile(self.config_file):
             with open(self.config_file) as conf_file:
                 try:
@@ -90,6 +95,8 @@ class LauncherListIndicator(object):
                     if profiles:
                         sorted_profiles = OrderedDict(sorted(profiles.items()))
                         for key, value in sorted_profiles.items():
+                            if current_list == value:
+                               key = u'\u2714 ' + key
                             self.menu_item = gtk.MenuItem(key)
                             self.menu_item.connect(
                                 'activate', self.set_value, value)
@@ -115,6 +122,24 @@ class LauncherListIndicator(object):
         self.app_menu.append(self.record_profile)
         self.app.set_secondary_activate_target(self.record_profile)
         self.record_profile.show()
+ 
+        self.extras = gtk.MenuItem('Extras')
+        self.extras_menu = gtk.Menu()
+        self.extras.set_submenu(self.extras_menu)
+        
+ 
+        self.toggle_visible = gtk.MenuItem('Toggle visibility')
+        self.toggle_visible.connect('activate', self.toggle_launcher)
+        self.extras_menu.append(self.toggle_visible)
+        self.toggle_visible.show()
+
+        self.enable_label = gtk.MenuItem('Toggle label')
+        self.enable_label.connect('activate',self.toggle_label)
+        self.extras_menu.append(self.enable_label)
+        self.enable_label.show()
+        
+        self.app_menu.append(self.extras)
+        self.extras.show()
 
         self.quit_app = gtk.MenuItem('Quit')
         self.quit_app.connect('activate', self.quit)
@@ -122,6 +147,23 @@ class LauncherListIndicator(object):
         self.quit_app.show()
 
         self.app.set_menu(self.app_menu)
+    
+    def toggle_label(self,*args):
+        """ Toggles label visibility"""
+        if self.show_label:
+           self.show_label = False
+        else:
+           self.show_label = True
+
+    def toggle_launcher(self,*args):
+        """ Toggles launcher visibility"""
+        schema="org.compiz.unityshell" 
+        key="launcher-hide-mode"
+        path="/org/compiz/profiles/unity/plugins/unityshell/"
+        if int(str(self.gsettings_get(schema,path,key))) == 1:
+            self.gsettings_set(schema,path,key,0)
+        else:
+            self.gsettings_set(schema,path,key,1)
 
     def gsettings_get(self, schema, path, key):
         """Get value of gsettings schema"""
@@ -137,7 +179,10 @@ class LauncherListIndicator(object):
             gsettings = Gio.Settings.new(schema)
         else:
             gsettings = Gio.Settings.new_with_path(schema, path)
-        return gsettings.set_strv(key, value)
+        if isinstance(value,list ):
+            return gsettings.set_strv(key, value)
+        if isinstance(value,int):
+            return gsettings.set_int(key, value)
 
     def run(self):
         """ Launches the indicator """
@@ -193,7 +238,7 @@ class LauncherListIndicator(object):
             self.make_menu()
 
     def remove_entry(self, lists=None):
-
+        """ deletes a list from config """
         entry = self.run_cmd([
                              'zenity', '--entry',
                              '--title=""', '--text="Which entry to remove?"'
@@ -233,21 +278,37 @@ class LauncherListIndicator(object):
         """ periodically alters indicator label
             to reflect current profile in use
         """
+        value_found = False
+        label = None
+        self.app.set_label("","")
         if os.path.isfile(self.config_file):
             with open(self.config_file) as conf_file:
                 current_value = list(
                     self.gsettings_get(self.schema, None, self.key))
-                self.app.set_label("N/A", "")
+                #self.app.set_label("N/A", "")
                 profiles = json.load(conf_file)
                 sorted_profiles = OrderedDict(sorted(profiles.items()))
                 for key, value in sorted_profiles.items():
                     if value == current_value:
-                        self.app.set_label(key, "")
-        glib.timeout_add_seconds(2.5, self.callback)
+                       value_found = True
+                       label = key
+
+            if self.show_label:
+                if not value_found: label = "N/A"
+                self.app.set_label(label, "")
+            if not value_found:  
+                for item in self.app_menu.get_children():
+                        entry_label = item.get_label()
+                        if entry_label.startswith(u'\u2714 '):
+                           item.set_label(entry_label.replace(u'\u2714 ',""))
+              
+        glib.timeout_add_seconds(0.75, self.callback)
 
     def callback(self):
         self.update_label()
 
+    def get_next(self):
+        pass 
 
 def main():
     """ defines program entry point """
