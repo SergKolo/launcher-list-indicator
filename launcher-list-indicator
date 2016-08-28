@@ -39,6 +39,7 @@ from gi.repository import AppIndicator3 as appindicator
 from gi.repository import Gtk as gtk
 from gi.repository import Gio
 from collections import OrderedDict
+from shutil import copyfile 
 import subprocess
 import json
 import time
@@ -66,7 +67,9 @@ class LauncherListIndicator(object):
             os.path.join(self.icon_path, "indicator-icon.png")
             )
         self.show_label = False
-        self.update_label()
+
+        self.update()
+        self.app.set_status(appindicator.IndicatorStatus.ACTIVE)
 
     def set_value(self, *args):
         """ wrapper function for gsettings_set() """
@@ -137,6 +140,11 @@ class LauncherListIndicator(object):
         self.enable_label.connect('activate',self.toggle_label)
         self.extras_menu.append(self.enable_label)
         self.enable_label.show()
+ 
+        self.change_icon = gtk.MenuItem('Change icon')
+        self.change_icon.connect('activate',self.set_new_icon)
+        self.extras_menu.append(self.change_icon)
+        self.change_icon.show()
         
         self.app_menu.append(self.extras)
         self.extras.show()
@@ -230,7 +238,6 @@ class LauncherListIndicator(object):
             # file doesn't exist, create it
             write_ok = True
             data = {label: current_list}
-            # print(data)
 
         if write_ok:
             with open(self.config_file, 'w') as conf_file:
@@ -274,7 +281,7 @@ class LauncherListIndicator(object):
             if stdout:
                 return stdout
 
-    def update_label(self):
+    def update(self):
         """ periodically alters indicator label
             to reflect current profile in use
         """
@@ -285,7 +292,6 @@ class LauncherListIndicator(object):
             with open(self.config_file) as conf_file:
                 current_value = list(
                     self.gsettings_get(self.schema, None, self.key))
-                #self.app.set_label("N/A", "")
                 profiles = json.load(conf_file)
                 sorted_profiles = OrderedDict(sorted(profiles.items()))
                 for key, value in sorted_profiles.items():
@@ -301,15 +307,40 @@ class LauncherListIndicator(object):
                         entry_label = item.get_label()
                         if entry_label.startswith(u'\u2714 '):
                            item.set_label(entry_label.replace(u'\u2714 ',""))
-              
         glib.timeout_add_seconds(0.75, self.callback)
 
     def callback(self):
-        self.update_label()
+        """ callback function to update() function for auto-refreshing"""
+        self.update()
 
     def get_next(self):
         pass 
 
+    def set_new_icon(self,data=None):
+        """ Allows setting new indicator icon　"""
+        user_home = os.path.expanduser('~')
+        filename_opt = '--filename="' + user_home + '/"'
+        new_icon_path = self.run_cmd([
+                               'zenity',
+                               '--file-selection',
+                               filename_opt
+                               ])
+        if new_icon_path:
+            new_icon_path = new_icon_path.decode().strip()
+        try:
+            if os.path.isfile(new_icon_path):
+                old_icon = os.path.join(self.icon_path, "indicator-icon.png")
+                os.rename(old_icon,old_icon + ".orig")
+                copyfile(new_icon_path,old_icon)
+
+                # Merely saving as new icon doesn't work
+                # we have to give it "different" file
+                temp_icon = os.path.join(self.icon_path,"temp_icon.png")
+                copyfile(old_icon,temp_icon)
+                self.app.set_icon(temp_icon)
+        except:
+            pass
+            
 def main():
     """ defines program entry point """
     indicator = LauncherListIndicator()
