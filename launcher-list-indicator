@@ -57,12 +57,22 @@ class LauncherListIndicator(object):
 
         self.schema = 'com.canonical.Unity.Launcher'
         self.key = 'favorites'
+
+        self.user_home = os.path.expanduser('~')
+
         self.config_file = os.path.join(
-            os.path.expanduser('~'),
+            self.user_home,
             '.launcher_profiles.json'
             )
         self.make_menu()
-        self.icon_path = os.path.dirname(os.path.realpath(__file__))
+        self.alt_icon_path = os.path.join(
+            self.user_home,
+            '.local/share/icons/launcher-list-indicator'
+            )
+        if os.path.exists(self.alt_icon_path):
+            self.icon_path = self.alt_icon_path
+        else:
+            self.icon_path = os.path.dirname(os.path.realpath(__file__))
         self.app.set_icon(
             os.path.join(self.icon_path, "indicator-icon.png")
             )
@@ -318,8 +328,7 @@ class LauncherListIndicator(object):
 
     def set_new_icon(self,data=None):
         """ Allows setting new indicator icon　"""
-        user_home = os.path.expanduser('~')
-        filename_opt = '--filename="' + user_home + '/"'
+        filename_opt = '--filename="' + self.user_home + '/"'
         new_icon_path = self.run_cmd([
                                'zenity',
                                '--file-selection',
@@ -329,15 +338,15 @@ class LauncherListIndicator(object):
             new_icon_path = new_icon_path.decode().strip()
         try:
             if os.path.isfile(new_icon_path):
-                old_icon = os.path.join(self.icon_path, "indicator-icon.png")
-                os.rename(old_icon,old_icon + ".orig")
-                copyfile(new_icon_path,old_icon)
+
+                if not os.path.exists(self.alt_icon_path):
+                     os.mkdir(self.alt_icon_path)
+                alt_icon = os.path.join(self.alt_icon_path,"indicator-icon.png")
+                copyfile(new_icon_path,alt_icon)
 
                 # Merely saving as new icon doesn't work
                 # we have to give it "different" file
-                temp_icon = os.path.join(self.icon_path,"temp_icon.png")
-                copyfile(old_icon,temp_icon)
-                self.app.set_icon(temp_icon)
+                self.app.set_icon(alt_icon)
         except:
             pass
             
