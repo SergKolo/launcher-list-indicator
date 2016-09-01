@@ -150,7 +150,12 @@ class LauncherListIndicator(object):
         self.enable_label.connect('activate',self.toggle_label)
         self.extras_menu.append(self.enable_label)
         self.enable_label.show()
- 
+
+        self.clear_launcher = gtk.MenuItem('Clear Launcher')
+        self.clear_launcher.connect('activate',self.clear)
+        self.extras_menu.append(self.clear_launcher)
+        self.clear_launcher.show()
+         
         self.change_icon = gtk.MenuItem('Change icon')
         self.change_icon.connect('activate',self.set_new_icon)
         self.extras_menu.append(self.change_icon)
@@ -182,6 +187,9 @@ class LauncherListIndicator(object):
             self.gsettings_set(schema,path,key,0)
         else:
             self.gsettings_set(schema,path,key,1)
+    def clear(self,*args):
+        """ clears launcher of all icons """
+        self.gsettings_set(self.schema,None,self.key,[])
 
     def gsettings_get(self, schema, path, key):
         """Get value of gsettings schema"""
@@ -309,7 +317,9 @@ class LauncherListIndicator(object):
                        value_found = True
                        label = key
 
+            timeout = 1.25
             if self.show_label:
+                timeout = 0.75
                 if not value_found: label = "N/A"
                 self.app.set_label(label, "")
             if not value_found:  
@@ -317,7 +327,7 @@ class LauncherListIndicator(object):
                         entry_label = item.get_label()
                         if entry_label.startswith(u'\u2714 '):
                            item.set_label(entry_label.replace(u'\u2714 ',""))
-        glib.timeout_add_seconds(0.75, self.callback)
+        glib.timeout_add_seconds(timeout, self.callback)
 
     def callback(self):
         """ callback function to update() function for auto-refreshing"""
@@ -352,6 +362,7 @@ class LauncherListIndicator(object):
             
 def main():
     """ defines program entry point """
+    os.nice(20)
     indicator = LauncherListIndicator()
     indicator.run()
 
