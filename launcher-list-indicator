@@ -343,23 +343,37 @@ class LauncherListIndicator(object):
         # Parse menu itself, to avoid reading file
         get_next = False
         first_item = None
-        for index,item in enumerate(self.app_menu.get_children()):
-                entry_label = item.get_label()
-                if index == 0:
-                   first_item = entry_label
-                if get_next:
-                   #print(entry_label)
-                   if entry_label == "":
-                      #print("YAY")
-                   break
-                if entry_label.startswith(u'\u2714 '):
-                   get_next = True
-        # We didn't find checkmark, so no
-        if not get_next:
-            #print(first_item) 
-       
-                   
+        children = self.app_menu.get_children() 
 
+        # Items to exclude ( so only profiles are left)
+        x = ['', 'Remove entry', 'Save current', 'Extras', 'Quit' ]
+        labels = [i.get_label() for i in children if i.get_label() not in x]
+
+        if  args[-1] == ScrollDirection.UP:
+            labels.reverse()
+        print(labels)
+
+        to_activate = None
+        for index,item in enumerate(labels):
+                if index == 0:
+                   first_item = item
+                if get_next:
+                   to_activate = item
+                   break
+                if item.startswith(u'\u2714 '):
+                   if index == len(labels)-1:
+                       break
+                   get_next = True
+
+        if not get_next:
+            to_activate = first_item
+
+        for child in children:
+            if child.get_label() == to_activate:
+               child.activate()
+               break                   
+        
+   
     def set_new_icon(self,data=None):
         """ Allows setting new indicator icon　"""
         filename_opt = '--filename="' + self.user_home + '/"'
