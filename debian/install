@@ -1,2 +1,3 @@
 *.png usr/share/pixmaps/
-launcher-list-indicator usr/share/launcher-list-indicator/
+launcher-list-indicator usr/bin/
+launcher-list-indicator.desktop usr/share/applications/
