@@ -15,6 +15,6 @@ This indicator allows easy switching between multiple lists of Unity Launcher ic
 
 ### Side Notes
 
-This indicator is related in codebase and logic to [mouse-profile-indicator](https://github.com/SergKolo/mouse-profile-indicator) , which allows easy switching between speeds of a mouse.
+- This indicator is related in codebase and logic to [mouse-profile-indicator](https://github.com/SergKolo/mouse-profile-indicator) , which allows easy switching between speeds of a mouse.
 
-
+- This indicator has been featured on [OMG!Ubuntu](http://www.omgubuntu.co.uk/2016/08/switch-profiles-unity-launcher-pinned-apps) and [WebUpd8](http://www.webupd8.org/2016/08/switch-between-multiple-lists-of-apps.html)
