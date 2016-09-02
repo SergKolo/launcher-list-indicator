@@ -1,0 +1,8 @@
+[Desktop Entry]
+Version=0.1
+Name=Launcher List Indicator
+Comment=An indicator for easy switching between multiple launcher profiles
+Exec=launcher-list-indicator
+Type=Application
+Icon=indicator-icon.png
+

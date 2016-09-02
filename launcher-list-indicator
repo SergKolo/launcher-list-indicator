@@ -38,6 +38,7 @@ from gi.repository import GLib as glib
 from gi.repository import AppIndicator3 as appindicator
 from gi.repository import Gtk as gtk
 from gi.repository import Gio
+from gi.repository.Gdk import ScrollDirection
 from collections import OrderedDict
 from shutil import copyfile 
 import subprocess
@@ -71,12 +72,15 @@ class LauncherListIndicator(object):
             )
         if os.path.exists(self.alt_icon_path):
             self.icon_path = self.alt_icon_path
+        elif os.path.exists('/usr/share/pixmaps/indicator-icon.png'):
+            os.icon_path = '/usr/share/pixmaps/'            
         else:
             self.icon_path = os.path.dirname(os.path.realpath(__file__))
         self.app.set_icon(
             os.path.join(self.icon_path, "indicator-icon.png")
             )
         self.show_label = False
+        self.app.connect("scroll-event",self.set_next)
 
         self.update()
         self.app.set_status(appindicator.IndicatorStatus.ACTIVE)
@@ -306,6 +310,7 @@ class LauncherListIndicator(object):
         value_found = False
         label = None
         self.app.set_label("","")
+        timeout = int()
         if os.path.isfile(self.config_file):
             with open(self.config_file) as conf_file:
                 current_value = list(
@@ -333,8 +338,27 @@ class LauncherListIndicator(object):
         """ callback function to update() function for auto-refreshing"""
         self.update()
 
-    def get_next(self):
-        pass 
+    def set_next(self,*args):
+        """ gets next profile and sets it """
+        # Parse menu itself, to avoid reading file
+        get_next = False
+        first_item = None
+        for index,item in enumerate(self.app_menu.get_children()):
+                entry_label = item.get_label()
+                if index == 0:
+                   first_item = entry_label
+                if get_next:
+                   #print(entry_label)
+                   if entry_label == "":
+                      #print("YAY")
+                   break
+                if entry_label.startswith(u'\u2714 '):
+                   get_next = True
+        # We didn't find checkmark, so no
+        if not get_next:
+            #print(first_item) 
+       
+                   
 
     def set_new_icon(self,data=None):
         """ Allows setting new indicator icon　"""
