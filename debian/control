@@ -1,0 +1,17 @@
+Source: launcher-list-indicator
+Section: gnome
+Priority: extra
+Maintainer: Nathan Osman <nathan@quickmediasolutions.com>
+Build-Depends: debhelper (>= 9)
+Standards-Version: 3.9.8
+Homepage: https://github.com/SergKolo/launcher-list-indicator
+
+Package: launcher-list-indicator
+Architecture: all
+Depends: python3-gi,
+         gir1.2-appindicator3-0.1,
+         ${python:Depends},
+         ${misc:Depends}
+Description: Unity profile switcher
+ Indicator for the Unity desktop environment that provides a menu for switching
+ between profiles easily.
