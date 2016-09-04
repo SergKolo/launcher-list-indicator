@@ -37,6 +37,7 @@ gi.require_version('AppIndicator3', '0.1')
 from gi.repository import GLib as glib
 from gi.repository import AppIndicator3 as appindicator
 from gi.repository import Gtk as gtk
+from gi.repository import Gdk
 from gi.repository import Gio
 from gi.repository.Gdk import ScrollDirection
 from collections import OrderedDict
@@ -49,6 +50,7 @@ import os
 class LauncherListIndicator(object):
 
     def __init__(self):
+
         self.app = appindicator.Indicator.new(
             'mouse-profile-indicator', "",
             appindicator.IndicatorCategory.HARDWARE
@@ -60,7 +62,6 @@ class LauncherListIndicator(object):
         self.key = 'favorites'
 
         self.user_home = os.path.expanduser('~')
-
         self.config_file = os.path.join(
             self.user_home,
             '.launcher_profiles.json'
@@ -81,7 +82,11 @@ class LauncherListIndicator(object):
             )
         self.show_label = False
         self.app.connect("scroll-event",self.set_next)
+        self.link_workspaces = False
+        self.workspaces_file = '.launcher_workspaces.json'
+        self.last_workspace = None
 
+        self.get_workspace_list()
         self.update()
         self.app.set_status(appindicator.IndicatorStatus.ACTIVE)
 
@@ -159,7 +164,13 @@ class LauncherListIndicator(object):
         self.clear_launcher.connect('activate',self.clear)
         self.extras_menu.append(self.clear_launcher)
         self.clear_launcher.show()
-         
+
+        if profiles:
+            self.toggle_wp_switcher =  gtk.MenuItem('Toggle Workspace Switcher')
+            self.toggle_wp_switcher.connect('activate', self.toggle_switcher)
+            self.extras_menu.append(self.toggle_wp_switcher)
+            self.toggle_wp_switcher.show()
+
         self.change_icon = gtk.MenuItem('Change icon')
         self.change_icon.connect('activate',self.set_new_icon)
         self.extras_menu.append(self.change_icon)
@@ -191,6 +202,14 @@ class LauncherListIndicator(object):
             self.gsettings_set(schema,path,key,0)
         else:
             self.gsettings_set(schema,path,key,1)
+
+    def toggle_switcher(self,*args):
+        """ Enables/disables automatic list switching per workspace"""
+        if not self.link_workspaces:
+           self.link_workspaces = True
+        else:
+           self.link_workspaces = False
+
     def clear(self,*args):
         """ clears launcher of all icons """
         self.gsettings_set(self.schema,None,self.key,[])
@@ -338,16 +357,20 @@ class LauncherListIndicator(object):
         """ callback function to update() function for auto-refreshing"""
         self.update()
 
-    def set_next(self,*args):
-        """ gets next profile and sets it """
-        # Parse menu itself, to avoid reading file
-        get_next = False
-        first_item = None
+    def parse_menu(self,*args):
+        """Parse menu itself, to avoid reading file"""
         children = self.app_menu.get_children() 
 
         # Items to exclude ( so only profiles are left)
         x = ['', 'Remove entry', 'Save current', 'Extras', 'Quit' ]
-        labels = [i.get_label() for i in children if i.get_label() not in x]
+        return [i.get_label() for i in children if i.get_label() not in x]
+        
+    def set_next(self,*args):
+        """ gets next profile and sets it """
+        get_next = False
+        first_item = None
+        children = self.app_menu.get_children() 
+        labels = self.parse_menu()
 
         if  args[-1] == ScrollDirection.UP:
             labels.reverse()
@@ -397,7 +420,102 @@ class LauncherListIndicator(object):
                 self.app.set_icon(alt_icon)
         except:
             pass
-            
+
+    def enumerate_viewports(self,*args):
+        """ generates enumerated dictionary of viewports and their
+            indexes, counting left to right """
+        schema="org.compiz.core"
+        path="/org/compiz/profiles/unity/plugins/core/"
+        keys=['hsize','vsize']
+        screen = Gdk.Screen.get_default()
+        screen_size=[ screen.get_width(),screen.get_height()]
+        grid=[ int(str(self.gsettings_get(schema,path,key))) for key in keys]
+        x_vals=[ screen_size[0]*x for x in range(0,grid[0]) ]
+        y_vals=[screen_size[1]*x for x in range(0,grid[1]) ]
+    
+        viewports=[(x,y)  for y in y_vals for x in x_vals ]
+    
+        return {vp:ix for ix,vp in enumerate(viewports,1)}
+
+    def get_current_viewport(self,*args):
+        """returns tuple representing current viewport, 
+           in format (width,height)"""
+        vp_string = self.run_cmd(['xprop', '-root', 
+                             '-notype', '_NET_DESKTOP_VIEWPORT'])
+        vp_list=vp_string.decode().strip().split('=')[1].split(',')
+        return tuple( int(i)  for i in vp_list )
+
+   
+
+    def get_workspace_list(self,*args):
+        timeout = 1.15
+        new_list = None
+
+        # Menuitems to be excluded
+        x = ['', 'Remove entry', 'Save current', 'Extras', 'Quit' ]
+
+        if self.link_workspaces:
+            current = self.get_current_viewport()
+            #print(current)
+            if current != self.last_workspace:
+                viewports_dict = self.enumerate_viewports()
+                current_vp_number = viewports_dict[current] 
+                config_file = os.path.join(self.user_home,self.workspaces_file)
+           
+                try:
+                    with open(config_file) as conf:
+                         data = json.load(conf)
+                         #print(data)
+                except:
+                    self.configure_workspaces()
+                else:
+                    menu = self.app_menu.get_children()
+                    label_pairs = { i.get_label():i for i 
+                                    in menu if i.get_label() not in x }
+                    print(label_pairs.keys())
+                    #menu = None
+                    if data:
+                       for key,val in data.items():
+                            if key == str(current_vp_number):
+                               new_list = val
+                               break
+                    if new_list in label_pairs:
+                       #print(label_pairs[new_list].get_label())
+                       print(label_pairs[new_list])
+                       label_pairs[new_list].activate()
+
+            self.last_workspace = self.get_current_viewport()
+
+        glib.timeout_add_seconds(timeout,self.callback_workspaces)
+
+    def callback_workspaces(self,*args):
+        self.get_workspace_list()
+
+    def configure_workspaces(self,*args):
+        ''' returns dictionary of workspace number and list name pairs.
+            Inteded to be used when configuring workspaces for the first 
+            time
+        '''
+         
+        viewports = self.enumerate_viewports()
+        num_viewports = len(viewports)
+        command=["zenity", '--forms', '--title', "Window title", '--text', "Combo name"]
+        labels = "|".join([ i.replace(u'\u2714',"") for i in self.parse_menu()])
+        #print(labels)
+        for i in range(num_viewports):
+            command.append('--add-combo') 
+            command.append( "Workspace # " + str(i+1)) 
+            command.append('--combo-values')
+            command.append(labels)
+        workspace_lists = self.run_cmd(command).decode().strip().split('|')
+        workspace_dict = { wp:name for wp,name in enumerate(workspace_lists,1) }
+
+        workspaces_config = os.path.join(self.user_home,self.workspaces_file)
+        with open(workspaces_config,'w') as config:
+             json.dump(workspace_dict,config,indent=4,sort_keys=True)
+ 
+
+#---| <- Marks 4 character width for class functions
 def main():
     """ defines program entry point """
     os.nice(20)
