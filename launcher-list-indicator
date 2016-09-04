@@ -448,6 +448,7 @@ class LauncherListIndicator(object):
    
 
     def get_workspace_list(self,*args):
+
         timeout = 1.15
         new_list = None
 
@@ -459,7 +460,6 @@ class LauncherListIndicator(object):
             #print(current)
             if current != self.last_workspace:
                 viewports_dict = self.enumerate_viewports()
-                current_vp_number = viewports_dict[current] 
                 config_file = os.path.join(self.user_home,self.workspaces_file)
            
                 try:
@@ -470,19 +470,17 @@ class LauncherListIndicator(object):
                     self.configure_workspaces()
                 else:
                     menu = self.app_menu.get_children()
-                    label_pairs = { i.get_label():i for i 
+                    label_pairs = { i.get_label().replace(u'\u2714 ',''):i for i 
                                     in menu if i.get_label() not in x }
-                    print(label_pairs.keys())
+                    #print(label_pairs.keys())
                     #menu = None
                     if data:
+                       current_vp_number = viewports_dict[current] 
                        for key,val in data.items():
                             if key == str(current_vp_number):
-                               new_list = val
-                               break
-                    if new_list in label_pairs:
-                       #print(label_pairs[new_list].get_label())
-                       print(label_pairs[new_list])
-                       label_pairs[new_list].activate()
+                               if val in label_pairs:
+                                  label_pairs[val].activate()
+                                  break
 
             self.last_workspace = self.get_current_viewport()
 
