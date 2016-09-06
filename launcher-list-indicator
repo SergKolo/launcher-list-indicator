@@ -71,12 +71,13 @@ class LauncherListIndicator(object):
             self.user_home,
             '.local/share/icons/launcher-list-indicator'
             )
+        # Default to current directory for icon path
+        # https://github.com/SergKolo/launcher-list-indicator/issues/11
+        self.icon_path = os.path.dirname(os.path.realpath(__file__))
         if os.path.exists(self.alt_icon_path):
             self.icon_path = self.alt_icon_path
         elif os.path.exists('/usr/share/pixmaps/indicator-icon.png'):
-            os.icon_path = '/usr/share/pixmaps/'            
-        else:
-            self.icon_path = os.path.dirname(os.path.realpath(__file__))
+            self.icon_path = '/usr/share/pixmaps/'            
         self.app.set_icon(
             os.path.join(self.icon_path, "indicator-icon.png")
             )
@@ -374,7 +375,7 @@ class LauncherListIndicator(object):
 
         if  args[-1] == ScrollDirection.UP:
             labels.reverse()
-        #print(labels)
+        #
 
         to_activate = None
         for index,item in enumerate(labels):
@@ -451,29 +452,32 @@ class LauncherListIndicator(object):
 
         timeout = 1.15
         new_list = None
+        config_file = os.path.join(self.user_home,self.workspaces_file)
 
         # Menuitems to be excluded
         x = ['', 'Remove entry', 'Save current', 'Extras', 'Quit' ]
 
         if self.link_workspaces:
-            current = self.get_current_viewport()
-            #print(current)
-            if current != self.last_workspace:
-                viewports_dict = self.enumerate_viewports()
-                config_file = os.path.join(self.user_home,self.workspaces_file)
-           
-                try:
-                    with open(config_file) as conf:
-                         data = json.load(conf)
-                         #print(data)
-                except:
-                    self.configure_workspaces()
-                else:
+
+            # Existence of file is presequisite for
+            # running workspace list-switcher
+            # Fixes:
+            # https://github.com/SergKolo/launcher-list-indicator/issues/13
+            try:
+                with open(config_file) as conf:
+                     data = json.load(conf)
+            except Exception as e:
+                # TODO    
+                self.configure_workspaces()
+            else:
+                current = self.get_current_viewport()
+                if current != self.last_workspace:
+                    viewports_dict = self.enumerate_viewports()
+                    
+               
                     menu = self.app_menu.get_children()
                     label_pairs = { i.get_label().replace(u'\u2714 ',''):i for i 
                                     in menu if i.get_label() not in x }
-                    #print(label_pairs.keys())
-                    #menu = None
                     if data:
                        current_vp_number = viewports_dict[current] 
                        for key,val in data.items():
@@ -497,20 +501,29 @@ class LauncherListIndicator(object):
          
         viewports = self.enumerate_viewports()
         num_viewports = len(viewports)
-        command=["zenity", '--forms', '--title', "Window title", '--text', "Combo name"]
-        labels = "|".join([ i.replace(u'\u2714',"") for i in self.parse_menu()])
-        #print(labels)
+
+        # https://github.com/SergKolo/launcher-list-indicator/issues/12
+        command=['zenity', '--forms', '--title',
+                 'Assing Profiles per Workspace', '--text', '']
+        labels = "|".join([ i.replace(u'\u2714 ',"") for i in self.parse_menu()])
+        #
         for i in range(num_viewports):
             command.append('--add-combo') 
             command.append( "Workspace # " + str(i+1)) 
             command.append('--combo-values')
             command.append(labels)
-        workspace_lists = self.run_cmd(command).decode().strip().split('|')
-        workspace_dict = { wp:name for wp,name in enumerate(workspace_lists,1) }
-
-        workspaces_config = os.path.join(self.user_home,self.workspaces_file)
-        with open(workspaces_config,'w') as config:
-             json.dump(workspace_dict,config,indent=4,sort_keys=True)
+        try:
+             
+             workspace_lists = self.run_cmd(command).decode().strip().split('|')
+             
+        except Exception as e:
+             
+             self.link_workspaces = False
+        else:
+             workspace_dict = { wp:name for wp,name in enumerate(workspace_lists,1) }
+             workspaces_config = os.path.join(self.user_home,self.workspaces_file)
+             with open(workspaces_config,'w') as config:
+                  json.dump(workspace_dict,config,indent=4,sort_keys=True)
  
 
 #---| <- Marks 4 character width for class functions
