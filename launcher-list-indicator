@@ -66,7 +66,7 @@ class LauncherListIndicator(object):
             self.user_home,
             '.launcher_profiles.json'
             )
-        self.make_menu()
+       
         self.alt_icon_path = os.path.join(
             self.user_home,
             '.local/share/icons/launcher-list-indicator'
@@ -86,9 +86,10 @@ class LauncherListIndicator(object):
         self.link_workspaces = False
         self.workspaces_file = '.launcher_workspaces.json'
         self.last_workspace = None
-
+        
         self.get_workspace_list()
         self.update()
+        self.make_menu()
         self.app.set_status(appindicator.IndicatorStatus.ACTIVE)
 
     def set_value(self, *args):
@@ -171,6 +172,12 @@ class LauncherListIndicator(object):
             self.toggle_wp_switcher.connect('activate', self.toggle_switcher)
             self.extras_menu.append(self.toggle_wp_switcher)
             self.toggle_wp_switcher.show()
+
+        if os.path.exists(os.path.join(self.user_home,self.workspaces_file)):
+            self.reconfig_wp =  gtk.MenuItem('Reconfigure Worspace Lists')
+            self.reconfig_wp.connect('activate', self.configure_workspaces)
+            self.extras_menu.append(self.reconfig_wp)
+            self.reconfig_wp.show()
 
         self.change_icon = gtk.MenuItem('Change icon')
         self.change_icon.connect('activate',self.set_new_icon)
@@ -288,10 +295,19 @@ class LauncherListIndicator(object):
 
     def remove_entry(self, lists=None):
         """ deletes a list from config """
-        entry = self.run_cmd([
-                             'zenity', '--entry',
-                             '--title=""', '--text="Which entry to remove?"'
-                             ]).decode().strip()
+
+        app_lists = '|'.join([i.replace(u'\u2714 ',"") for i in self.parse_menu()])
+
+        dialog = [ 
+                 'zenity','--forms', '--title',
+                 'Select list to remove', '--text', '',
+                 '--add-combo','List Name','--combo-values',
+                 app_lists
+                 ]
+        try:
+            entry = self.run_cmd(dialog).decode().strip()
+        except:
+            return
 
         if os.path.isfile(self.config_file):
             found = False
@@ -418,7 +434,10 @@ class LauncherListIndicator(object):
 
                 # Merely saving as new icon doesn't work
                 # we have to give it "different" file
-                self.app.set_icon(alt_icon)
+                timestamp = str(int(time.time()))
+                temp_icon = "/tmp/icon_" + timestamp
+                copyfile(new_icon_path,temp_icon)
+                self.app.set_icon(temp_icon)
         except:
             pass
 
