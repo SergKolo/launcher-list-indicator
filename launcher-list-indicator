@@ -543,6 +543,7 @@ class LauncherListIndicator(object):
              workspaces_config = os.path.join(self.user_home,self.workspaces_file)
              with open(workspaces_config,'w') as config:
                   json.dump(workspace_dict,config,indent=4,sort_keys=True)
+             self.make_menu()
  
 
 #---| <- Marks 4 character width for class functions
