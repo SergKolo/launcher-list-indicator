@@ -88,8 +88,8 @@ class LauncherListIndicator(object):
         self.last_workspace = None
         
         self.get_workspace_list()
-        self.update()
         self.make_menu()
+        self.update()
         self.app.set_status(appindicator.IndicatorStatus.ACTIVE)
 
     def set_value(self, *args):
@@ -363,7 +363,8 @@ class LauncherListIndicator(object):
                 timeout = 0.75
                 if not value_found: label = "N/A"
                 self.app.set_label(label, "")
-            if not value_found:  
+
+            if not value_found and hasattr(self, 'app_menu'):
                 for item in self.app_menu.get_children():
                         entry_label = item.get_label()
                         if entry_label.startswith(u'\u2714 '):
