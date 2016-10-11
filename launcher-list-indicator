@@ -265,22 +265,9 @@ class LauncherListIndicator(object):
             with open(self.config_file, 'r') as conf_file:
                 data = json.load(conf_file)
                 write_ok = True
-                for key, value in data.items():
-                    if label == key:
-                        message = '"Label already exists"'
-                        self.run_cmd([
-                                     'zenity', '--error',
-                                     '--title=""', '--text=' + message
-                                     ])
-                        write_ok = False
-
-                    if value == current_list:
-                        message = '"Profile with such value already exists"'
-                        self.run_cmd([
-                                     'zenity', '--error',
-                                     '--title=""', '--text=' + message
-                                     ])
-                        write_ok = False
+                data[label] = current_list
+# Removed restriction on profile naming. Fixes
+# https://github.com/SergKolo/launcher-list-indicator/issues/16 
 
                 data[label] = current_list
         else:
