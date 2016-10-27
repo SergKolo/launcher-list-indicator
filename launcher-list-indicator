@@ -41,20 +41,21 @@ from gi.repository import Gdk
 from gi.repository import Gio
 from gi.repository.Gdk import ScrollDirection
 from collections import OrderedDict
-from shutil import copyfile 
+from shutil import copyfile
 import subprocess
 import json
 import time
 import os
+
 
 class LauncherListIndicator(object):
 
     def __init__(self):
 
         self.app = appindicator.Indicator.new(
-            'mouse-profile-indicator', "",
+            'launcher-list-indicator', "",
             appindicator.IndicatorCategory.HARDWARE
-            )
+        )
 
         self.app.set_status(appindicator.IndicatorStatus.ACTIVE)
 
@@ -65,28 +66,28 @@ class LauncherListIndicator(object):
         self.config_file = os.path.join(
             self.user_home,
             '.launcher_profiles.json'
-            )
-       
+        )
+
         self.alt_icon_path = os.path.join(
             self.user_home,
             '.local/share/icons/launcher-list-indicator'
-            )
+        )
         # Default to current directory for icon path
         # https://github.com/SergKolo/launcher-list-indicator/issues/11
         self.icon_path = os.path.dirname(os.path.realpath(__file__))
         if os.path.exists(self.alt_icon_path):
             self.icon_path = self.alt_icon_path
         elif os.path.exists('/usr/share/pixmaps/indicator-icon.png'):
-            self.icon_path = '/usr/share/pixmaps/'            
+            self.icon_path = '/usr/share/pixmaps/'
         self.app.set_icon(
             os.path.join(self.icon_path, "indicator-icon.png")
-            )
+        )
         self.show_label = False
-        self.app.connect("scroll-event",self.set_next)
+        self.app.connect("scroll-event", self.set_next)
         self.link_workspaces = False
         self.workspaces_file = '.launcher_workspaces.json'
         self.last_workspace = None
-        
+
         self.get_workspace_list()
         self.make_menu()
         self.update()
@@ -107,7 +108,7 @@ class LauncherListIndicator(object):
 
         profiles = None
         separator_added = None
-        current_list = list(self.gsettings_get(self.schema,None,self.key))
+        current_list = list(self.gsettings_get(self.schema, None, self.key))
 
         if os.path.isfile(self.config_file):
             with open(self.config_file) as conf_file:
@@ -120,7 +121,7 @@ class LauncherListIndicator(object):
                         sorted_profiles = OrderedDict(sorted(profiles.items()))
                         for key, value in sorted_profiles.items():
                             if current_list == value:
-                               key = u'\u2714 ' + key
+                                key = u'\u2714 ' + key
                             self.menu_item = gtk.MenuItem(key)
                             self.menu_item.connect(
                                 'activate', self.set_value, value)
@@ -146,44 +147,44 @@ class LauncherListIndicator(object):
         self.app_menu.append(self.record_profile)
         self.app.set_secondary_activate_target(self.record_profile)
         self.record_profile.show()
- 
+
         self.extras = gtk.MenuItem('Extras')
         self.extras_menu = gtk.Menu()
         self.extras.set_submenu(self.extras_menu)
-        
- 
-        self.toggle_visible = gtk.MenuItem('Toggle visibility')
+
+        self.toggle_visible = gtk.MenuItem('Hide Launcher')
         self.toggle_visible.connect('activate', self.toggle_launcher)
         self.extras_menu.append(self.toggle_visible)
         self.toggle_visible.show()
 
         self.enable_label = gtk.MenuItem('Toggle label')
-        self.enable_label.connect('activate',self.toggle_label)
+        self.enable_label.connect('activate', self.toggle_label)
         self.extras_menu.append(self.enable_label)
         self.enable_label.show()
 
         self.clear_launcher = gtk.MenuItem('Clear Launcher')
-        self.clear_launcher.connect('activate',self.clear)
+        self.clear_launcher.connect('activate', self.clear)
         self.extras_menu.append(self.clear_launcher)
         self.clear_launcher.show()
 
         if profiles:
-            self.toggle_wp_switcher =  gtk.MenuItem('Toggle Workspace Switcher')
+            self.toggle_wp_switcher = gtk.MenuItem(
+                'Toggle Workspace Switcher')
             self.toggle_wp_switcher.connect('activate', self.toggle_switcher)
             self.extras_menu.append(self.toggle_wp_switcher)
             self.toggle_wp_switcher.show()
 
-        if os.path.exists(os.path.join(self.user_home,self.workspaces_file)):
-            self.reconfig_wp =  gtk.MenuItem('Reconfigure Worspace Lists')
+        if os.path.exists(os.path.join(self.user_home, self.workspaces_file)):
+            self.reconfig_wp = gtk.MenuItem('Reconfigure Worspace Lists')
             self.reconfig_wp.connect('activate', self.configure_workspaces)
             self.extras_menu.append(self.reconfig_wp)
             self.reconfig_wp.show()
 
         self.change_icon = gtk.MenuItem('Change icon')
-        self.change_icon.connect('activate',self.set_new_icon)
+        self.change_icon.connect('activate', self.set_new_icon)
         self.extras_menu.append(self.change_icon)
         self.change_icon.show()
-        
+
         self.app_menu.append(self.extras)
         self.extras.show()
 
@@ -193,34 +194,34 @@ class LauncherListIndicator(object):
         self.quit_app.show()
 
         self.app.set_menu(self.app_menu)
-    
-    def toggle_label(self,*args):
+
+    def toggle_label(self, *args):
         """ Toggles label visibility"""
         if self.show_label:
-           self.show_label = False
+            self.show_label = False
         else:
-           self.show_label = True
+            self.show_label = True
 
-    def toggle_launcher(self,*args):
+    def toggle_launcher(self, *args):
         """ Toggles launcher visibility"""
-        schema="org.compiz.unityshell" 
-        key="launcher-hide-mode"
-        path="/org/compiz/profiles/unity/plugins/unityshell/"
-        if int(str(self.gsettings_get(schema,path,key))) == 1:
-            self.gsettings_set(schema,path,key,0)
+        schema = "org.compiz.unityshell"
+        key = "launcher-hide-mode"
+        path = "/org/compiz/profiles/unity/plugins/unityshell/"
+        if int(str(self.gsettings_get(schema, path, key))) == 1:
+            self.gsettings_set(schema, path, key, 0)
         else:
-            self.gsettings_set(schema,path,key,1)
+            self.gsettings_set(schema, path, key, 1)
 
-    def toggle_switcher(self,*args):
-        """ Enables/disables automatic list switching per workspace"""
+    def toggle_switcher(self, *args):
+        """Enables/disables automatic list switching per workspace"""
         if not self.link_workspaces:
-           self.link_workspaces = True
+            self.link_workspaces = True
         else:
-           self.link_workspaces = False
+            self.link_workspaces = False
 
-    def clear(self,*args):
+    def clear(self, *args):
         """ clears launcher of all icons """
-        self.gsettings_set(self.schema,None,self.key,[])
+        self.gsettings_set(self.schema, None, self.key, [])
 
     def gsettings_get(self, schema, path, key):
         """Get value of gsettings schema"""
@@ -236,9 +237,9 @@ class LauncherListIndicator(object):
             gsettings = Gio.Settings.new(schema)
         else:
             gsettings = Gio.Settings.new_with_path(schema, path)
-        if isinstance(value,list ):
+        if isinstance(value, list):
             return gsettings.set_strv(key, value)
-        if isinstance(value,int):
+        if isinstance(value, int):
             return gsettings.set_int(key, value)
 
     def run(self):
@@ -267,7 +268,7 @@ class LauncherListIndicator(object):
                 write_ok = True
                 data[label] = current_list
 # Removed restriction on profile naming. Fixes
-# https://github.com/SergKolo/launcher-list-indicator/issues/16 
+# https://github.com/SergKolo/launcher-list-indicator/issues/16
 
                 data[label] = current_list
         else:
@@ -283,14 +284,15 @@ class LauncherListIndicator(object):
     def remove_entry(self, lists=None):
         """ deletes a list from config """
 
-        app_lists = '|'.join([i.replace(u'\u2714 ',"") for i in self.parse_menu()])
+        app_lists = '|'.join([i.replace(u'\u2714 ', "")
+                             for i in self.parse_menu()])
 
-        dialog = [ 
-                 'zenity','--forms', '--title',
-                 'Select list to remove', '--text', '',
-                 '--add-combo','List Name','--combo-values',
-                 app_lists
-                 ]
+        dialog = [
+            'zenity', '--forms', '--title',
+            'Select list to remove', '--text', '',
+            '--add-combo', 'List Name', '--combo-values',
+            app_lists
+        ]
         try:
             entry = self.run_cmd(dialog).decode().strip()
         except:
@@ -332,7 +334,7 @@ class LauncherListIndicator(object):
         """
         value_found = False
         label = None
-        self.app.set_label("","")
+        self.app.set_label("", "")
         timeout = int()
         if os.path.isfile(self.config_file):
             with open(self.config_file) as conf_file:
@@ -342,199 +344,198 @@ class LauncherListIndicator(object):
                 sorted_profiles = OrderedDict(sorted(profiles.items()))
                 for key, value in sorted_profiles.items():
                     if value == current_value:
-                       value_found = True
-                       label = key
+                        value_found = True
+                        label = key
 
             timeout = 1.25
             if self.show_label:
                 timeout = 0.75
-                if not value_found: label = "N/A"
+                if not value_found:
+                    label = "N/A"
                 self.app.set_label(label, "")
 
             if not value_found and hasattr(self, 'app_menu'):
                 for item in self.app_menu.get_children():
-                        entry_label = item.get_label()
-                        if entry_label.startswith(u'\u2714 '):
-                           item.set_label(entry_label.replace(u'\u2714 ',""))
+                    entry_label = item.get_label()
+                    if entry_label.startswith(u'\u2714 '):
+                        item.set_label(entry_label.replace(u'\u2714 ', ""))
         glib.timeout_add_seconds(timeout, self.callback)
 
     def callback(self):
         """ callback function to update() function for auto-refreshing"""
         self.update()
 
-    def parse_menu(self,*args):
+    def parse_menu(self, *args):
         """Parse menu itself, to avoid reading file"""
-        children = self.app_menu.get_children() 
+        children = self.app_menu.get_children()
 
         # Items to exclude ( so only profiles are left)
-        x = ['', 'Remove entry', 'Save current', 'Extras', 'Quit' ]
+        x = ['', 'Remove entry', 'Save current', 'Extras', 'Quit']
         return [i.get_label() for i in children if i.get_label() not in x]
-        
-    def set_next(self,*args):
+
+    def set_next(self, *args):
         """ gets next profile and sets it """
         get_next = False
         first_item = None
-        children = self.app_menu.get_children() 
+        children = self.app_menu.get_children()
         labels = self.parse_menu()
 
-        if  args[-1] == ScrollDirection.UP:
+        if args[-1] == ScrollDirection.UP:
             labels.reverse()
         #
 
         to_activate = None
-        for index,item in enumerate(labels):
-                if index == 0:
-                   first_item = item
-                if get_next:
-                   to_activate = item
-                   break
-                if item.startswith(u'\u2714 '):
-                   if index == len(labels)-1:
-                       break
-                   get_next = True
+        for index, item in enumerate(labels):
+            if index == 0:
+                first_item = item
+            if get_next:
+                to_activate = item
+                break
+            if item.startswith(u'\u2714 '):
+                if index == len(labels) - 1:
+                    break
+                get_next = True
 
         if not get_next:
             to_activate = first_item
 
         for child in children:
             if child.get_label() == to_activate:
-               child.activate()
-               break                   
-        
-   
-    def set_new_icon(self,data=None):
+                child.activate()
+                break
+
+    def set_new_icon(self, data=None):
         """ Allows setting new indicator icon　"""
         filename_opt = '--filename="' + self.user_home + '/"'
-        new_icon_path = self.run_cmd([
-                               'zenity',
-                               '--file-selection',
-                               filename_opt
-                               ])
+        command = ['zenity', '--file-selection', filename_opt]
+        new_icon_path = self.run_cmd(command)
         if new_icon_path:
             new_icon_path = new_icon_path.decode().strip()
         try:
             if os.path.isfile(new_icon_path):
 
                 if not os.path.exists(self.alt_icon_path):
-                     os.mkdir(self.alt_icon_path)
-                alt_icon = os.path.join(self.alt_icon_path,"indicator-icon.png")
-                copyfile(new_icon_path,alt_icon)
+                    os.mkdir(self.alt_icon_path)
+                alt_icon = os.path.join(
+                    self.alt_icon_path, "indicator-icon.png")
+                copyfile(new_icon_path, alt_icon)
 
                 # Merely saving as new icon doesn't work
                 # we have to give it "different" file
                 timestamp = str(int(time.time()))
                 temp_icon = "/tmp/icon_" + timestamp
-                copyfile(new_icon_path,temp_icon)
+                copyfile(new_icon_path, temp_icon)
                 self.app.set_icon(temp_icon)
         except:
             pass
 
-    def enumerate_viewports(self,*args):
+    def enumerate_viewports(self, *args):
         """ generates enumerated dictionary of viewports and their
             indexes, counting left to right """
-        schema="org.compiz.core"
-        path="/org/compiz/profiles/unity/plugins/core/"
-        keys=['hsize','vsize']
+        schema = "org.compiz.core"
+        path = "/org/compiz/profiles/unity/plugins/core/"
+        keys = ['hsize', 'vsize']
         screen = Gdk.Screen.get_default()
-        screen_size=[ screen.get_width(),screen.get_height()]
-        grid=[ int(str(self.gsettings_get(schema,path,key))) for key in keys]
-        x_vals=[ screen_size[0]*x for x in range(0,grid[0]) ]
-        y_vals=[screen_size[1]*x for x in range(0,grid[1]) ]
-    
-        viewports=[(x,y)  for y in y_vals for x in x_vals ]
-    
-        return {vp:ix for ix,vp in enumerate(viewports,1)}
+        screen_size = [screen.get_width(), screen.get_height()]
+        grid = [int(str(self.gsettings_get(schema, path, key)))
+                for key in keys]
+        x_vals = [screen_size[0] * x for x in range(0, grid[0])]
+        y_vals = [screen_size[1] * x for x in range(0, grid[1])]
 
-    def get_current_viewport(self,*args):
-        """returns tuple representing current viewport, 
+        viewports = [(x, y) for y in y_vals for x in x_vals]
+
+        return {vp: ix for ix, vp in enumerate(viewports, 1)}
+
+    def get_current_viewport(self, *args):
+        """returns tuple representing current viewport,
            in format (width,height)"""
-        vp_string = self.run_cmd(['xprop', '-root', 
-                             '-notype', '_NET_DESKTOP_VIEWPORT'])
-        vp_list=vp_string.decode().strip().split('=')[1].split(',')
-        return tuple( int(i)  for i in vp_list )
+        vp_string = self.run_cmd(['xprop', '-root',
+                                  '-notype', '_NET_DESKTOP_VIEWPORT'])
+        vp_list = vp_string.decode().strip().split('=')[1].split(',')
+        return tuple(int(i) for i in vp_list)
 
-   
-
-    def get_workspace_list(self,*args):
+    def get_workspace_list(self, *args):
 
         timeout = 1.15
         new_list = None
-        config_file = os.path.join(self.user_home,self.workspaces_file)
+        config_file = os.path.join(self.user_home, self.workspaces_file)
 
         # Menuitems to be excluded
-        x = ['', 'Remove entry', 'Save current', 'Extras', 'Quit' ]
+        x = ['', 'Remove entry', 'Save current', 'Extras', 'Quit']
 
         if self.link_workspaces:
-
             # Existence of file is presequisite for
             # running workspace list-switcher
             # Fixes:
             # https://github.com/SergKolo/launcher-list-indicator/issues/13
             try:
                 with open(config_file) as conf:
-                     data = json.load(conf)
+                    data = json.load(conf)
             except Exception as e:
-                # TODO    
+                # TODO
                 self.configure_workspaces()
             else:
                 current = self.get_current_viewport()
                 if current != self.last_workspace:
                     viewports_dict = self.enumerate_viewports()
-                    
-               
-                    menu = self.app_menu.get_children()
-                    label_pairs = { i.get_label().replace(u'\u2714 ',''):i for i 
-                                    in menu if i.get_label() not in x }
+                    label_pairs = self.get_label_pairs(self.app_menu, x)
                     if data:
-                       current_vp_number = viewports_dict[current] 
-                       for key,val in data.items():
+                        current_vp_number = viewports_dict[current]
+                        for key, val in data.items():
                             if key == str(current_vp_number):
-                               if val in label_pairs:
-                                  label_pairs[val].activate()
-                                  break
+                                if val in label_pairs:
+                                    label_pairs[val].activate()
+                                    break
 
             self.last_workspace = self.get_current_viewport()
 
-        glib.timeout_add_seconds(timeout,self.callback_workspaces)
+        glib.timeout_add_seconds(timeout, self.callback_workspaces)
 
-    def callback_workspaces(self,*args):
+    def get_label_pairs(self, menu, excluded):
+        children = menu.get_children()
+        return {i.get_label().replace(u'\u2714 ', ''): i for i
+                in children if i.get_label() not in excluded}
+
+    def callback_workspaces(self, *args):
         self.get_workspace_list()
 
-    def configure_workspaces(self,*args):
+    def configure_workspaces(self, *args):
         ''' returns dictionary of workspace number and list name pairs.
-            Inteded to be used when configuring workspaces for the first 
+            Inteded to be used when configuring workspaces for the first
             time
         '''
-         
+
         viewports = self.enumerate_viewports()
         num_viewports = len(viewports)
 
         # https://github.com/SergKolo/launcher-list-indicator/issues/12
-        command=['zenity', '--forms', '--title',
-                 'Assing Profiles per Workspace', '--text', '']
-        labels = "|".join([ i.replace(u'\u2714 ',"") for i in self.parse_menu()])
+        command = ['zenity', '--forms', '--title',
+                   'Assing Profiles per Workspace', '--text', '']
+        labels = "|".join([i.replace(u'\u2714 ', "")
+                          for i in self.parse_menu()])
         #
         for i in range(num_viewports):
-            command.append('--add-combo') 
-            command.append( "Workspace # " + str(i+1)) 
+            command.append('--add-combo')
+            command.append("Workspace # " + str(i + 1))
             command.append('--combo-values')
             command.append(labels)
         try:
-             
-             workspace_lists = self.run_cmd(command).decode().strip().split('|')
-             
-        except Exception as e:
-             
-             self.link_workspaces = False
-        else:
-             workspace_dict = { wp:name for wp,name in enumerate(workspace_lists,1) }
-             workspaces_config = os.path.join(self.user_home,self.workspaces_file)
-             with open(workspaces_config,'w') as config:
-                  json.dump(workspace_dict,config,indent=4,sort_keys=True)
-             self.make_menu()
- 
 
-#---| <- Marks 4 character width for class functions
+            workspace_lists = self.run_cmd(command).decode().strip().split('|')
+
+        except Exception as e:
+
+            self.link_workspaces = False
+        else:
+            workspace_dict = {
+                wp: name for wp, name in enumerate(workspace_lists, 1)}
+            workspaces_config = os.path.join(
+                self.user_home, self.workspaces_file)
+            with open(workspaces_config, 'w') as config:
+                json.dump(workspace_dict, config, indent=4, sort_keys=True)
+            self.make_menu()
+
+
 def main():
     """ defines program entry point """
     os.nice(20)
