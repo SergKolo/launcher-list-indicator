@@ -122,6 +122,7 @@ class LauncherListIndicator(object):
                         for key, value in sorted_profiles.items():
                             if current_list == value:
                                 key = u'\u2714 ' + key
+
                             self.menu_item = gtk.MenuItem(key)
                             self.menu_item.connect(
                                 'activate', self.set_value, value)
@@ -132,25 +133,34 @@ class LauncherListIndicator(object):
                         self.app_menu.append(self.separator)
                         self.separator.show()
                         separator_added = True
-
-                        self.remove_list = gtk.MenuItem('Remove entry')
-                        self.remove_list.connect('activate', self.remove_entry)
-                        self.app_menu.append(self.remove_list)
-                        self.remove_list.show()
-
+                  
+                        contents = [self.app_menu,gtk.ImageMenuItem,'remove',
+                                    'Remove entry',self.remove_entry,[None]
+                        ]
+                        self.add_menu_item(*contents)
+                        
         if not separator_added:
             self.separator = gtk.SeparatorMenuItem()
             self.app_menu.append(self.separator)
             self.separator.show()
-        self.record_profile = gtk.MenuItem('Save current')
-        self.record_profile.connect('activate', self.record)
-        self.app_menu.append(self.record_profile)
-        self.app.set_secondary_activate_target(self.record_profile)
-        self.record_profile.show()
 
-        self.extras = gtk.MenuItem('Extras')
-        self.extras_menu = gtk.Menu()
+        contents = [self.app_menu,gtk.ImageMenuItem,'gtk-save',
+                    'Save current',self.record,[None]
+        ]
+        self.add_menu_item(*contents)
+
+        last = self.get_last_menuitem(self.app_menu) 
+        self.app.set_secondary_activate_target(last)
+
+        contents = [self.app_menu,gtk.ImageMenuItem,'starred',
+                    'Extras',None,[None]
+        ]
+        self.add_menu_item(*contents)
+        self.extras = self.get_last_menuitem(self.app_menu) 
+
+        self.extras_menu = gtk.Menu() 
         self.extras.set_submenu(self.extras_menu)
+        self.extras.show()
 
         self.toggle_visible = gtk.MenuItem('Hide Launcher')
         self.toggle_visible.connect('activate', self.toggle_launcher)
@@ -185,15 +195,49 @@ class LauncherListIndicator(object):
         self.extras_menu.append(self.change_icon)
         self.change_icon.show()
 
-        self.app_menu.append(self.extras)
-        self.extras.show()
 
-        self.quit_app = gtk.MenuItem('Quit')
-        self.quit_app.connect('activate', self.quit)
-        self.app_menu.append(self.quit_app)
-        self.quit_app.show()
+        contents = [self.app_menu,gtk.ImageMenuItem,'exit',
+                    'Quit',self.quit,[None]
+        ]
+        self.add_menu_item(*contents)
 
         self.app.set_menu(self.app_menu)
+
+    def get_last_menuitem(self,*args):
+        last = None
+        for child in args[-1].get_children(): last = child
+        return last
+
+    def add_menu_item(self, menu_obj, item_type, image, label, action, args):
+        """ dynamic function that can add menu items depending on
+            the item type and other arguments"""
+        menu_item, icon = None, None
+        if item_type is gtk.ImageMenuItem and label:
+            menu_item = gtk.ImageMenuItem.new_with_label(label)
+            menu_item.set_always_show_image(True)
+            if '/' in image:
+                icon = gtk.Image.new_from_file(image)
+            else:
+                icon = gtk.Image.new_from_icon_name(image, 48)
+            menu_item.set_image(icon)
+        elif item_type is gtk.ImageMenuItem and not label:
+            menu_item = gtk.ImageMenuItem()
+            menu_item.set_always_show_image(True)
+            if '/' in image:
+                icon = gtk.Image.new_from_file(image)
+            else:
+                icon = gtk.Image.new_from_icon_name(image, 16)
+            menu_item.set_image(icon)
+        elif item_type is gtk.MenuItem:
+            menu_item = gtk.MenuItem(label)
+        elif item_type is gtk.SeparatorMenuItem:
+            menu_item = gtk.SeparatorMenuItem()
+        if action:
+            menu_item.connect('activate', action, *args)
+
+        menu_obj.append(menu_item)
+        menu_item.show()
+
 
     def toggle_label(self, *args):
         """ Toggles label visibility"""
@@ -249,7 +293,7 @@ class LauncherListIndicator(object):
         except KeyboardInterrupt:
             pass
 
-    def record(self, data=None):
+    def record(self,*args):
         """ Store current setting as new profile"""
         current_list = list(self.gsettings_get(self.schema, None, self.key))
         label = self.run_cmd([
@@ -281,7 +325,7 @@ class LauncherListIndicator(object):
                 json.dump(data, conf_file, indent=4, sort_keys=True)
             self.make_menu()
 
-    def remove_entry(self, lists=None):
+    def remove_entry(self,*args):
         """ deletes a list from config """
 
         app_lists = '|'.join([i.replace(u'\u2714 ', "")
@@ -312,7 +356,7 @@ class LauncherListIndicator(object):
                     json.dump(lists, conf_file, indent=4, sort_keys=True)
                 self.make_menu()
 
-    def quit(self, data=None):
+    def quit(self,*args):
         """ closes indicator """
         gtk.main_quit()
 
